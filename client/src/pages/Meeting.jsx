@@ -232,7 +232,7 @@ export default function Meeting() {
 
         setStatus("Connecting to meeting server...");
 
-        socket = io("http://localhost:5000");
+        socket = io("http://connectx-real-time-communication-app.onrender.com");
         socketRef.current = socket;
 
         socket.on("connect", () => {
