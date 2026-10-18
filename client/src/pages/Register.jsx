@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 
 function Register() {
   const [formData, setFormData] = useState({
@@ -97,7 +98,8 @@ function Register() {
         {message && <div className="auth-message">{message}</div>}
 
         <p className="auth-footer">
-          Already have an account? <span>Login</span>
+          Already have an account?{" "}
+          <Link to="/login">Login</Link>
         </p>
       </div>
     </div>
