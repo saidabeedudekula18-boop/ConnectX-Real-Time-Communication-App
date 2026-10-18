@@ -21,7 +21,7 @@ function Register() {
     setMessage("Creating account...");
 
     try {
-      const response = await fetch("http://connectx-real-time-communication-app.onrender.com/api/auth/register", {
+      const response = await fetch("https://connectx-real-time-communication-app.onrender.com/api/auth/register", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
