@@ -1,3 +1,4 @@
+
 const User = require("./models/User");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
@@ -10,6 +11,23 @@ require("dotenv").config();
 
 const app = express();
 const server = http.createServer(app);
+
+// Frontend URLs allowed to connect to this backend.
+const allowedOrigins = [
+  "http://localhost:5173",
+  process.env.CLIENT_URL,
+].filter(Boolean);
+
+app.use(
+  cors({
+    origin: allowedOrigins,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
+  })
+);
+
+app.use(express.json());
+
+// MongoDB connection
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
@@ -19,8 +37,20 @@ mongoose
     console.error("MongoDB connection failed:", error.message);
   });
 
-app.use(cors());
-app.use(express.json());
+// Socket.IO setup
+const io = new Server(server, {
+  cors: {
+    origin: allowedOrigins,
+    methods: ["GET", "POST"],
+  },
+});
+
+// Health check
+app.get("/", (req, res) => {
+  res.send("Real-Time Communication Server is running!");
+});
+
+// Register
 app.post("/api/auth/register", async (req, res) => {
   try {
     const { name, email, password } = req.body;
@@ -53,7 +83,7 @@ app.post("/api/auth/register", async (req, res) => {
       password: hashedPassword,
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       message: "Registration successful",
       user: {
         id: user._id,
@@ -62,14 +92,15 @@ app.post("/api/auth/register", async (req, res) => {
       },
     });
   } catch (error) {
-    console.error(error);
+    console.error("Registration error:", error.message);
 
-    res.status(500).json({
+    return res.status(500).json({
       message: "Server error",
     });
   }
 });
 
+// Login
 app.post("/api/auth/login", async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -88,11 +119,22 @@ app.post("/api/auth/login", async (req, res) => {
       });
     }
 
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    const isPasswordValid = await bcrypt.compare(
+      password,
+      user.password
+    );
 
     if (!isPasswordValid) {
       return res.status(401).json({
         message: "Invalid email or password",
+      });
+    }
+
+    if (!process.env.JWT_SECRET) {
+      console.error("JWT_SECRET is not configured");
+
+      return res.status(500).json({
+        message: "Server configuration error",
       });
     }
 
@@ -107,7 +149,7 @@ app.post("/api/auth/login", async (req, res) => {
       }
     );
 
-    res.json({
+    return res.json({
       message: "Login successful",
       token,
       user: {
@@ -117,74 +159,61 @@ app.post("/api/auth/login", async (req, res) => {
       },
     });
   } catch (error) {
-    console.error(error);
+    console.error("Login error:", error.message);
 
-    res.status(500).json({
+    return res.status(500).json({
       message: "Server error",
     });
   }
 });
 
-const io = new Server(server, {
-  cors: {
-    origin: "http://localhost:5173",
-    methods: ["GET", "POST"],
-  },
-});
-
-app.get("/", (req, res) => {
-  res.send("Real-Time Communication Server is running!");
-});
-
-
-
+// Socket.IO real-time events
 io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
 
-  
-socket.on("join-room", (data) => {
-  const roomId =
-    typeof data === "string" ? data : data?.roomId;
+  // Join meeting room
+  socket.on("join-room", (data) => {
+    const roomId =
+      typeof data === "string" ? data : data?.roomId;
 
-  const name =
-    typeof data === "object" && data?.name
-      ? String(data.name).trim().slice(0, 40)
-      : "Participant";
+    const name =
+      typeof data === "object" && data?.name
+        ? String(data.name).trim().slice(0, 40)
+        : "Participant";
 
-  if (typeof roomId !== "string" || !roomId.trim()) {
-    console.log("Invalid room ID from:", socket.id);
-    return;
-  }
+    if (typeof roomId !== "string" || !roomId.trim()) {
+      console.log("Invalid room ID from:", socket.id);
+      return;
+    }
 
-  const room = roomId.trim();
+    const room = roomId.trim();
 
-  const existingRoom = io.sockets.adapter.rooms.get(room);
-  const existingPeers = existingRoom
-    ? [...existingRoom].filter((id) => id !== socket.id)
-    : [];
+    const existingRoom = io.sockets.adapter.rooms.get(room);
+    const existingPeers = existingRoom
+      ? [...existingRoom].filter((id) => id !== socket.id)
+      : [];
 
-  socket.join(room);
-  socket.data.meetingRoom = room;
-  socket.data.participantName = name;
+    socket.join(room);
+    socket.data.meetingRoom = room;
+    socket.data.participantName = name;
 
-  const participants = existingPeers.map((id) => ({
-    socketId: id,
-    name:
-      io.sockets.sockets.get(id)?.data.participantName ||
-      "Participant",
-  }));
+    const participants = existingPeers.map((id) => ({
+      socketId: id,
+      name:
+        io.sockets.sockets.get(id)?.data.participantName ||
+        "Participant",
+    }));
 
-  console.log("User joined room:", room, "Name:", name);
-  console.log("Existing participants:", participants);
+    console.log("User joined room:", room, "Name:", name);
+    console.log("Existing participants:", participants);
 
-  socket.emit("existing-peers", participants);
+    socket.emit("existing-peers", participants);
 
-  socket.to(room).emit("peer-joined", {
-    socketId: socket.id,
-    name,
+    socket.to(room).emit("peer-joined", {
+      socketId: socket.id,
+      name,
+    });
   });
-});
-
 
   // Real-time room chat
   socket.on("chat-message", (data) => {
@@ -196,12 +225,10 @@ socket.on("join-room", (data) => {
 
     const message = data.message.trim();
 
-    // Ignore empty or excessively long messages.
     if (!message || message.length > 1000) {
       return;
     }
 
-    // Send the message to everyone in this meeting room.
     io.to(room).emit("chat-message", {
       senderId: socket.id,
       name: socket.data.participantName || "Participant",
@@ -210,8 +237,11 @@ socket.on("join-room", (data) => {
     });
   });
 
-  socket.on("offer", ({ target, offer }) => {
-    console.log("Offer received from:", socket.id, "to:", target);
+  // WebRTC offer
+  socket.on("offer", (data) => {
+    if (!data) return;
+
+    const { target, offer } = data;
 
     if (target && offer) {
       io.to(target).emit("offer", {
@@ -221,8 +251,11 @@ socket.on("join-room", (data) => {
     }
   });
 
-  socket.on("answer", ({ target, answer }) => {
-    console.log("Answer received from:", socket.id, "to:", target);
+  // WebRTC answer
+  socket.on("answer", (data) => {
+    if (!data) return;
+
+    const { target, answer } = data;
 
     if (target && answer) {
       io.to(target).emit("answer", {
@@ -232,7 +265,12 @@ socket.on("join-room", (data) => {
     }
   });
 
-  socket.on("ice-candidate", ({ target, candidate }) => {
+  // WebRTC ICE candidates
+  socket.on("ice-candidate", (data) => {
+    if (!data) return;
+
+    const { target, candidate } = data;
+
     if (target && candidate) {
       io.to(target).emit("ice-candidate", {
         sender: socket.id,
@@ -241,6 +279,7 @@ socket.on("join-room", (data) => {
     }
   });
 
+  // Participant disconnected
   socket.on("disconnect", () => {
     const room = socket.data.meetingRoom;
 
@@ -254,10 +293,9 @@ socket.on("join-room", (data) => {
   });
 });
 
+// Render provides PORT automatically.
+const PORT = process.env.PORT || 5000;
 
-
-const PORT = 5000;
-
-server.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+server.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server running on port ${PORT}`);
 });
