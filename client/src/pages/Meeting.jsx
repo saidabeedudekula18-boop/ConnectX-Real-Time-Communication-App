@@ -232,7 +232,9 @@ export default function Meeting() {
 
         setStatus("Connecting to meeting server...");
 
-        socket = io("https://connectx-real-time-communication-app.onrender.com");
+        const API_URL = import.meta.env.VITE_API_URL;
+
+        socket = io(API_URL);
         socketRef.current = socket;
 
         socket.on("connect", () => {
