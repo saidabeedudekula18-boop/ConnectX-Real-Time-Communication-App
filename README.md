@@ -107,6 +107,29 @@ Open the local frontend URL displayed in your terminal.
 - Deploy the application for public access
 - Improve the user interface and accessibility
 
+- ## 🚀 Live Demo
+
+**Try ConnectX here:** [ConnectX Live App](https://connectx-frontend-q2yn.onrender.com)
+
+Open the live app, register or log in, and explore the real-time communication features.
+
+## ✨ Features
+
+- 🎥 Real-time video and audio calling
+- 👥 Multi-participant meetings
+- 💬 Real-time chat
+- 🖥️ Screen sharing
+- 🔐 User authentication
+
+## 🛠️ Tech Stack
+
+- **Frontend:** React.js, Vite
+- **Backend:** Node.js, Express.js
+- **Real-time Communication:** Socket.IO, WebRTC
+- **Database:** MongoDB
+- **Deployment:** Render
+
+
 ## Author
 
 **Saidabee Dudekula**
