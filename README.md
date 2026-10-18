@@ -75,10 +75,22 @@ Create the required local `.env` files based on your application configuration. 
 Start the backend and frontend using the scripts defined in their respective `package.json` files.
 
 Open the local frontend URL displayed in your terminal.
-
 ## Screenshots
 
+### Home Page
+![ConnectX Home Page](Home-page.png)
 
+### Login Page
+![ConnectX Login Page](login-page.png)
+
+### Dashboard
+![ConnectX Dashboard](dashboard.png)
+
+### Chat Box
+![ConnectX Chat Box](Chatbox.png)
+
+### Meeting Room
+![ConnectX Meeting Room](Meeting-room.png)
 
 ## What I Learned
 
